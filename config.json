@@ -1,0 +1,13 @@
+{
+  "urls": [
+    "https://www.olx.com.br/informatica/perifericos-e-acessorios-de-computador/estado-sp?ps=150&pe=450&q=teclado%20mecanico%20split&pdcc=2",
+    "https://www.olx.com.br/esportes-e-lazer/esportes-aquaticos/estado-sp?q=caiaque",
+    "https://www.olx.com.br/estado-sp?q=garmin%20735%20xt",
+    "https://www.olx.com.br/estado-sp?q=garmin%20265%20xt"
+  ],
+  "interval": "*/5 * * * *",
+  "logger": {
+    "timestampFormat": "YYYY-MM-DD HH:mm:ss"
+  },
+  "inactiveThreshold": 3
+} 
