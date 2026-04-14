@@ -9,5 +9,6 @@ FROM node:20
 ARG NODE_ENV
 WORKDIR /usr/app
 COPY --from=builder /usr/app/ ./
+RUN npm install -g nodemon
 EXPOSE 3000
-CMD [ "npm", "start" ]
+CMD [ "nodemon", "--watch", "config.js", "index.js" ]
