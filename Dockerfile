@@ -11,4 +11,4 @@ WORKDIR /usr/app
 COPY --from=builder /usr/app/ ./
 RUN npm install -g nodemon
 EXPOSE 3000
-CMD [ "nodemon", "--watch", "config.js", "index.js" ]
+CMD [ "nodemon", "--legacy-watch", "--watch", "config.js", "index.js" ]
