@@ -6,94 +6,77 @@ Estava procurando um produto específico no OLX, e diariamente acessava minhas b
 
 Vi nessa situação uma oportunidade para aprender um pouco sobre scrapping usando o `nodejs` para tentar não perder uma próxima oportunidade. Espero que você também consiga o mesmo.
 
+## ✨ Novas Funcionalidades (v2.0)
+
+Recentemente o projeto recebeu grandes melhorias para tornar a monitoração ainda mais inteligente:
+
+-   **📊 Análise Estatística Avançada:** O scrapper agora calcula média, mediana, moda e desvio padrão de todos os anúncios encontrados.
+-   **📈 Detecção de Tendência (Theil-Sen):** Utiliza algoritmos estatísticos para identificar se os preços de uma busca estão subindo ou descendo nos últimos 30 dias.
+-   **🧠 Notificações Inteligentes:** As mensagens no Telegram agora vêm com um resumo do mercado, indicando se o anúncio é um "Excelente Negócio", "Preço Justo" ou "Muito Caro" com base nos dados reais da plataforma.
+-   **📉 Histórico de Preços:** Evolução do banco de dados para armazenar métricas detalhadas de cada varredura.
+-   **🔄 Atualização Dinâmica:** Configuração com Docker/Nodemon que reinicia o serviço automaticamente ao alterar o arquivo de configurações (`config.js`).
+
 ## Instalação e configuração
 
-Para utilizar esse script você precisa ter o `node` e o `npm` devidamente instalados, ter uma conta no [Telegram](https://telegram.org/), e idealmente um computador que fique ligado 27/7 para executar o script continuamente. Eu usei um Raspberry Pi 2 que consome pouca energia e já uso para outros fins, mas você pode usar um VPS, ou um sevidor gratuito da Oracle.
-
-Se você já está familiarizado com a API do Telegram e já mexeu bom bots segue um passo-a-passo mais enxuto:
+Para utilizar esse script você precisa ter o `node` e o `npm` devidamente instalados (Node v20 recomendado), ter uma conta no [Telegram](https://telegram.org/), e idealmente um computador que fique ligado 24/7 para executar o script continuamente.
 
 ### Usando Node
 
 1. Clonar ou fazer download do repositório `git clone https://github.com/carmolim/olx-monitor.git`
-1. Acessar a pasta onde os arquivos js se encontram `cd src`
-1. Instalar as dependências com o comando `npm install`
-1. Renomear o arquivo `example.env` para `.env` e incluir as informações do seu BOT e do seu grupo que irá receber as notificações
-1. Incluir as URLs que você quer que sejam monitoradas no arquivo `config.js`
-1. Definir qual o intervalo que você quer que as buscas sejam feitas no arquivo `config.js`
-1. Executar o script usando o comando `node index.js`
+1. Instalar as dependências na pasta raiz e na pasta `src`: `npm install` e `cd src && npm install`
+1. Renomear o arquivo `src/.env.example` para `src/.env` e incluir as informações do seu BOT e do seu grupo
+1. Incluir as URLs que você quer que sejam monitoradas no arquivo `src/config.js`
+1. Executar o script usando o comando `node src/index.js` ou `npm start` (dentro de `src`)
 1. Acompanhar o andamento do script no Terminal
-1. Se correu tudo certo, dois novos arquivos foram criados dentro da pasta `data`: `ads.db` que é o banco de dados e o `scrapper.log` com os logs de execução do script
 
-### Usando docker-compose
+### Usando docker-compose (Recomendado)
 
-Se você quiser utiliar o Docker para não ter que instalar o Node e nem as dependências diretamente na sua máquina siga os seguintes passos
+O Docker facilita a execução e garante que o serviço reinicie se você mudar as configurações.
 
-1. Realize os passos 1 a 7 do guia usando Node
-2. Na primeira vez que você for rodar é preciso buildar a imagem rodando o comando `docker-compose build`
-3. Nas próximas vezes só é necessário rodar o comando `docker-compose up`
-
+1. Configure o arquivo `src/.env` e `src/config.js`.
+2. Rode `docker-compose up --build -d`.
+3. O serviço monitorará o `src/config.js`. Se você adicionar uma nova URL lá, o container reiniciará sozinho para aplicar a mudança.
 
 ### Configuração do Telegram
 
-Para você poder receber as notificações pelo Telegram você precisa ter algumas coisas, um bot que terá um token e um grupo que tenho bot com que você irá criar como participante.
-
 #### Criar seu bot
 
-Para conseguir o seu token você precisa criar o seu próprio bot. Eu pretendo fazer um tutorial, mas enquanto isso você pode usar esse [aqui](https://www.youtube.com/watch?v=4u9JQR0-Bgc&feature=youtu.be&t=88). O vídeo é longo mas você só precisa assistir até: 3:24. Com esse vídeo você irá conseguir obter o seu token.
+Para conseguir o seu token você precisa criar o seu próprio bot usando o [@BotFather](https://t.me/botfather).
 
 #### Descobrindo seu CHAT ID
 
-Depois de criar o seu bot, crie um grupo e convite o seu bot que você acabou de criar e també um outro bot, o `@idbot`, ele vai te ajudar a descobrir o `CHAT_ID` que precisamos para enviar a notificação. 
+Depois de criar o seu bot, crie um grupo e convide o seu bot e também o bot `@idbot`. Digite `/getgroupid@myidbot` no grupo para obter o ID.
 
-Depois de incluir o no grupo, basta digitar `/getgroupid@myidbot` e bot irá responder com o ID do chat. 
+#### Editando seu ambiente
 
-#### Editando seu ambiênte
-
-Dentro do repositório tem um arquivo chamado `example.env`, você precisa renomea-lo para apenas `.env` e preencher as informações que você acabou de pegar. 
+Preencha o arquivo `.env`:
 
 | Variável          | Exemplo                                |
 | ----------------- | -------------------------------------- |
 | TELEGRAM_TOKEN    | Token do seu bot gerado pelo BotFather |
-| TELEGRAM_CHAT\_ID | ID do seu chat                         |
+| TELEGRAM_CHAT_ID  | ID do seu chat (ex: -100...)           |
 
-### O que deve ser monitorado?
+## O que deve ser monitorado?
 
-Eu não sei o que você está procurando no OLX, mas você precisa dizer para o script. A forma mais fácil de fazer isso é entrar no site do OLX, fazer uma busca, colocar os filtros que você acha necessário e copiar o endereço que o OLX vai criar.
+Entre no site do OLX, faça uma busca com os filtros desejados (preço, região, estado do produto) e copie a URL completa.
 
-Recomendo utilizar filtros bem específicos para não gerar resultados com muitos itens. Como esse script irá varrer todos os resultados encontrados, pode ser possível que não seja possível passar por todos os resultados dentro do intervalo definido, isso pode fazer com que o Olx perceba uma quantidade alta de chamadas do seu IP e faça algum bloqueio. Isso nunca me aconteceu, mas pode acontecer.
+### Exemplos no `src/config.js`
 
-Você pode utilizar uma ou mais pesquisas, basta apenas incluir as `URLs` no arquivo `config.js` dentro da variável `URLs`
-
-#### Exemplos
-
-##### Apenas uma `URL`
-
-```
-config.urls = ['https://sp.olx.com.br/sao-paulo-e-regiao/centro/celulares/iphone?cond=1&cond=2&pe=1600&ps=600&q=iphone']
-```
-
-##### Várias `URLs`
-
-Para usar várias `URLs` você só precisa separa-las por vírgula.
-
-```
+```javascript
 config.urls = [
-    'https://sp.olx.com.br/sao-paulo-e-regiao/centro/celulares/iphone?cond=1&cond=2&pe=1600&ps=600&q=iphone',
-    'https://sp.olx.com.br/sao-paulo-e-regiao/imoveis/venda?bae=2&bas=1&gsp=1&pe=600000&ps=100000&se=6&ss=2',
+    'https://sp.olx.com.br/sao-paulo-e-regiao/celulares/iphone?pe=4000&ps=2000&q=iphone%2013',
 ]
 ```
 
-#### Dica
+## Funcionamento e Inteligência
 
-Quando mais específica sua busca for mais eficiente o script será, se você só buscar por iPhone, no Brasil todo, você vai receber muitas notificações por dia, não vai ser muito legal.
-
-## Funcionamento
-
-O funcionamamento do script é simples. Ele percorre um `array` de `URLs` copiadas do OLX, que já contém os filtros de preço mínimo, máximo e etc, encontra os anúncios dentro dessa página e inclui os anúncios encontrados em um banco de dados SQLite e também envia uma notificação para um BOT no Telegram. 
-
-As entradas salvas no banco de dados são utilizadas posteriormente para detectar alterações nos preços, que também são notificadas através do Telegram.
-
+O script não apenas avisa sobre novos anúncios, mas faz uma curadoria:
+1. **Coleta:** Varre as páginas em busca de anúncios com preço.
+2. **Estatística:** Filtra outliers e calcula o "preço ideal" (baseado em percentis e mediana).
+3. **Tendência:** Compara a mediana atual com varreduras de dias anteriores para dizer se o mercado está esfriando ou aquecendo.
+4. **Alerta:** Envia o link com um "selo de qualidade" (Ex: 🟢 Preço Bom: 15% abaixo da referência).
 
 ## Considerações
 
-- Esse script só funciona com a versão brasileira do OLX, nos outros países a interface é diferente e o scrapper não consegue puxar as informações necessárias para funcionar. Porém a adaptação para outros países deve ser consideravalmente fácil de fazer. As alterações deverão ser feitas no arquivo `Scraper.js`
+- Esse script só funciona com a versão brasileira do OLX.
+- O banco de dados SQLite fica em `data/ads.db`.
