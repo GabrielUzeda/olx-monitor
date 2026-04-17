@@ -63,10 +63,11 @@ const createTables = async () => {
         PRIMARY KEY("id" AUTOINCREMENT)
     );`,
 
-    // Subscriptions table (Multi-chat support)
+    // Subscriptions table (Multi-chat and Topic support)
     `CREATE TABLE IF NOT EXISTS "subscriptions" (
         "id"            INTEGER NOT NULL UNIQUE,
         "chatId"        TEXT NOT NULL,
+        "threadId"      TEXT,
         "url"           TEXT NOT NULL,
         "searchName"    TEXT NOT NULL,
         "created"       TEXT NOT NULL,

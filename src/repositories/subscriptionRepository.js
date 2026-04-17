@@ -1,28 +1,27 @@
 const { db } = require('../database/database.js');
 const $logger = require('../components/Logger.js');
 
-const addSubscription = async (chatId, url, searchName) => {
+const addSubscription = async (chatId, url, searchName, threadId = null) => {
     $logger.debug('subscriptionRepository: addSubscription');
 
     const query = `
-        INSERT INTO subscriptions (chatId, url, searchName, created)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO subscriptions (chatId, url, searchName, threadId, created)
+        VALUES (?, ?, ?, ?, ?)
     `;
     const now = new Date().toISOString();
-    const values = [String(chatId), url, searchName, now];
+    const values = [String(chatId), url, searchName, threadId ? String(threadId) : null, now];
 
     return new Promise((resolve, reject) => {
         db.run(query, values, function (error) {
             if (error) {
-                // If it's a unique constraint error, it means the user is already subscribed
                 if (error.message.includes('UNIQUE constraint failed')) {
-                    resolve(false); // Already subscribed
+                    resolve(false);
                     return;
                 }
                 reject(error);
                 return;
             }
-            resolve(true); // Successfully added
+            resolve(true);
         });
     });
 };
@@ -39,7 +38,7 @@ const removeSubscription = async (chatId, url) => {
                 reject(error);
                 return;
             }
-            resolve(this.changes > 0); // Returns true if a row was deleted
+            resolve(this.changes > 0);
         });
     });
 };
@@ -61,10 +60,13 @@ const getSubscriptionsByChat = async (chatId) => {
     });
 };
 
+/**
+ * Returns an array of objects { chatId, threadId }
+ */
 const getChatsByUrl = async (url) => {
     $logger.debug('subscriptionRepository: getChatsByUrl');
 
-    const query = `SELECT chatId FROM subscriptions WHERE url = ?`;
+    const query = `SELECT chatId, threadId FROM subscriptions WHERE url = ?`;
     const values = [url];
 
     return new Promise((resolve, reject) => {
@@ -73,7 +75,7 @@ const getChatsByUrl = async (url) => {
                 reject(error);
                 return;
             }
-            resolve(rows ? rows.map(r => r.chatId) : []);
+            resolve(rows || []);
         });
     });
 };

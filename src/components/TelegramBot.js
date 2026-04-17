@@ -13,9 +13,6 @@ class TelegramBot {
         this.isRunning = false;
     }
 
-    /**
-     * Inicia o Long-Polling para ouvir mensagens do Telegram
-     */
     async start() {
         if (!this.token) {
             $logger.warn('Telegram token is missing. Bot cannot start.');
@@ -27,9 +24,6 @@ class TelegramBot {
         this.poll();
     }
 
-    /**
-     * Para o polling
-     */
     stop() {
         this.isRunning = false;
         $logger.info('Telegram Bot Listener stopped.');
@@ -39,7 +33,6 @@ class TelegramBot {
         if (!this.isRunning) return;
 
         try {
-            // timeout=30 enables Long-Polling: the connection stays open up to 30s waiting for messages
             const response = await fetch(`${this.apiUrl}/getUpdates?offset=${this.offset}&timeout=30`);
             
             if (response.ok) {
@@ -47,24 +40,28 @@ class TelegramBot {
                 
                 if (data.ok && data.result.length > 0) {
                     for (const update of data.result) {
-                        this.offset = update.update_id + 1; // Update offset to acknowledge message
+                        this.offset = update.update_id + 1;
+                        
                         if (update.message && update.message.text) {
                             await this.handleMessage(update.message);
+                        }
+                        
+                        if (update.callback_query) {
+                            await this.handleCallbackQuery(update.callback_query);
                         }
                     }
                 }
             } else {
                 $logger.error(`Telegram API Error (Polling): ${response.status}`);
-                await this._sleep(5000); // Backoff em caso de erro da API
+                await this._sleep(5000);
             }
         } catch (e) {
             if (e.name !== 'AbortError' && e.code !== 'ECONNRESET') {
                 $logger.error(`Polling error: ${e.message}`);
-                await this._sleep(5000); // Backoff em erro de rede
+                await this._sleep(5000);
             }
         }
 
-        // Loop infinito seguro (chamada assíncrona logo após o término da atual)
         if (this.isRunning) {
             setTimeout(() => this.poll(), 0);
         }
@@ -73,89 +70,119 @@ class TelegramBot {
     async handleMessage(message) {
         const chatId = message.chat.id;
         const text = message.text.trim();
+        const threadId = message.message_thread_id || null;
 
-        $logger.debug(`Message from ${chatId}: ${text}`);
+        $logger.debug(`Message from ${chatId} (Thread: ${threadId}): ${text}`);
 
         if (text.startsWith('/start')) {
-            await this.handleStart(chatId);
+            await this.handleStart(chatId, threadId);
         } else if (text.startsWith('/add ')) {
-            await this.handleAdd(chatId, text);
-        } else if (text.startsWith('/remove ') || text === '/remove') {
-            await this.handleRemove(chatId, text);
-        } else if (text.startsWith('/list') || text === '/list') {
-            await this.handleList(chatId);
+            await this.handleAdd(chatId, text, threadId);
+        } else if (text.startsWith('/remove')) {
+            await this.handleRemove(chatId, text, threadId);
+        } else if (text.startsWith('/list')) {
+            await this.handleList(chatId, threadId);
         }
     }
 
-    async handleStart(chatId) {
-        const msg = `👋 <b>Olá! Eu sou o OLX Monitor.</b>\n\n` +
-                    `Você pode me usar para rastrear anúncios e preços. Cada grupo ou chat tem sua própria lista de rastreio!\n\n` +
-                    `<b>Comandos:</b>\n` +
-                    `➕ <code>/add [LINK_DO_OLX]</code> - Começa a rastrear uma busca\n` +
-                    `➖ <code>/remove [LINK_DO_OLX]</code> - Para de rastrear uma busca\n` +
-                    `📋 <code>/list</code> - Mostra tudo que este chat está rastreando\n\n` +
-                    `<i>Faça a busca no site da OLX, copie o link completo e mande o comando /add!</i>`;
-        await notifier.sendNotification(chatId, msg);
+    async handleCallbackQuery(query) {
+        const chatId = query.message.chat.id;
+        const messageId = query.message.message_id;
+        const threadId = query.message.message_thread_id || null;
+        const data = query.data;
+
+        if (data.startsWith('rem_')) {
+            const subId = parseInt(data.replace('rem_', ''));
+            const subs = await subscriptionRepository.getSubscriptionsByChat(chatId);
+            const subToDelete = subs.find(s => s.id === subId);
+
+            if (subToDelete) {
+                await subscriptionRepository.removeSubscription(chatId, subToDelete.url);
+                await fetch(`${this.apiUrl}/answerCallbackQuery?callback_query_id=${query.id}&text=Removido!`);
+                
+                await fetch(`${this.apiUrl}/editMessageText`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chat_id: chatId,
+                        message_id: messageId,
+                        message_thread_id: threadId,
+                        text: `✅ <b>Removido:</b> ${subToDelete.searchName}`,
+                        parse_mode: 'HTML'
+                    })
+                });
+            }
+        }
     }
 
-    async handleAdd(chatId, text) {
-        const urlMatch = text.match(/\/add\s+(https?:\/\/[^\s]+)/);
-        if (!urlMatch) {
-            await notifier.sendNotification(chatId, '❌ Por favor, envie uma URL válida. Exemplo:\n<code>/add https://ba.olx.com.br/autos-e-pecas/carros-vans-e-utilitarios</code>');
+    async handleStart(chatId, threadId) {
+        const msg = `👋 <b>OLX Monitor</b>\n\n` +
+                    `➕ <code>/add [LINK] [NOME]</code>\n` +
+                    `➖ <code>/remove</code>\n` +
+                    `📋 <code>/list</code>`;
+        await notifier.sendNotification(chatId, msg, { threadId });
+    }
+
+    async handleAdd(chatId, text, threadId) {
+        const match = text.match(/\/add\s+(https?:\/\/[^\s]+)(?:\s+(.+))?/);
+        
+        if (!match) {
+            await notifier.sendNotification(chatId, '❌ Use: <code>/add [LINK] [NOME_OPCIONAL]</code>', { threadId });
             return;
         }
 
-        const url = urlMatch[1];
-        
+        const url = match[1];
+        let searchName = match[2] ? match[2].trim() : null;
+
         try {
             const parsedUrl = new URL(url);
-            const searchName = parsedUrl.searchParams.get('q') || parsedUrl.pathname.split('/').pop() || 'Busca Geral';
+            if (!searchName) {
+                searchName = parsedUrl.searchParams.get('q') || parsedUrl.pathname.split('/').pop() || 'Busca';
+            }
 
-            const success = await subscriptionRepository.addSubscription(chatId, url, searchName);
+            const success = await subscriptionRepository.addSubscription(chatId, url, searchName, threadId);
             
             if (success) {
-                await notifier.sendNotification(chatId, `✅ <b>Busca adicionada com sucesso!</b>\n\nNome: ${searchName}\n\nAssim que novos anúncios surgirem ou preços caírem, este chat será notificado.`);
-                $logger.info(`Chat ${chatId} subscribed to ${searchName}`);
+                await notifier.sendNotification(chatId, `✅ <b>Monitorando:</b> <a href="${url}">${searchName}</a>`, { threadId });
             } else {
-                await notifier.sendNotification(chatId, `⚠️ Este chat já está rastreando essa exata URL.`);
+                await notifier.sendNotification(chatId, `⚠️ Já estou monitorando este link.`, { threadId });
             }
         } catch (e) {
-            await notifier.sendNotification(chatId, `❌ URL inválida ou problema ao salvar.`);
+            await notifier.sendNotification(chatId, `❌ URL inválida.`, { threadId });
         }
     }
 
-    async handleRemove(chatId, text) {
-        const urlMatch = text.match(/\/remove\s+(https?:\/\/[^\s]+)/);
-        if (!urlMatch) {
-            await notifier.sendNotification(chatId, '❌ Envie o comando com a URL que deseja remover. Exemplo:\n<code>/remove https://...</code>\n\nDica: Use /list para ver as URLs.');
-            return;
-        }
-
-        const url = urlMatch[1];
-        const success = await subscriptionRepository.removeSubscription(chatId, url);
-
-        if (success) {
-            await notifier.sendNotification(chatId, `🗑️ Busca removida! Este chat não receberá mais notificações para esta URL.`);
-            $logger.info(`Chat ${chatId} unsubscribed from a URL.`);
-        } else {
-            await notifier.sendNotification(chatId, `⚠️ Esta URL não estava na sua lista de rastreio.`);
-        }
-    }
-
-    async handleList(chatId) {
+    async handleRemove(chatId, text, threadId) {
         const subs = await subscriptionRepository.getSubscriptionsByChat(chatId);
-
         if (subs.length === 0) {
-            await notifier.sendNotification(chatId, `📭 Este chat não está rastreando nenhuma busca atualmente. Use o comando /add.`);
+            await notifier.sendNotification(chatId, '📭 Nenhuma busca ativa.', { threadId });
             return;
         }
 
-        let msg = `📋 <b>Buscas Ativas neste Chat (${subs.length}):</b>\n\n`;
+        const buttons = subs.map(sub => ([{
+            text: `❌ ${sub.searchName}`,
+            callback_data: `rem_${sub.id}`
+        }]));
+
+        await notifier.sendNotification(chatId, '🗑️ <b>Remover busca:</b>', {
+            threadId,
+            reply_markup: { inline_keyboard: buttons }
+        });
+    }
+
+    async handleList(chatId, threadId) {
+        const subs = await subscriptionRepository.getSubscriptionsByChat(chatId);
+        if (subs.length === 0) {
+            await notifier.sendNotification(chatId, `📭 <b>Nenhuma busca ativa.</b>`, { threadId });
+            return;
+        }
+
+        let msg = '';
         subs.forEach((sub, i) => {
-            msg += `<b>${i + 1}.</b> ${sub.searchName}\n🔗 <a href="${sub.url}">Link</a>\n\n`;
+            msg += `${i + 1}. <a href="${sub.url}">${sub.searchName}</a>\n`;
         });
 
-        await notifier.sendNotification(chatId, msg);
+        await notifier.sendNotification(chatId, msg, { threadId });
     }
 
     _sleep(ms) {
