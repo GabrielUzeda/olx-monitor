@@ -10,8 +10,6 @@ scrapper.log
 # Configurações e Segredos
 .env
 src/.env
-config.js
-src/config.js
 
 # Banco de dados
 *.db
