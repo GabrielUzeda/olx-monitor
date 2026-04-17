@@ -5,12 +5,13 @@ const $logger = require('./Logger');
 
 /**
  * Envia uma notificação via Telegram utilizando o fetch nativo do Node.js
+ * @param {string|number} chatId - O ID do chat no Telegram
  * @param {string} msg - A mensagem a ser enviada
  */
-exports.sendNotification = async (msg) => {
+exports.sendNotification = async (chatId, msg) => {
     const startedAt = new Date().toISOString();
     $logger.info(
-        `[Telegram] sendMessage iniciada em ${startedAt} (${msg.length} caracteres)`
+        `[Telegram] sendMessage iniciada para chat ${chatId} em ${startedAt} (${msg.length} caracteres)`
     );
 
     try {
@@ -22,7 +23,7 @@ exports.sendNotification = async (msg) => {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                chat_id: config.telegramChatID,
+                chat_id: chatId,
                 text: msg,
                 parse_mode: 'HTML', // ESSENCIAL para o <b> funcionar
                 disable_web_page_preview: true // Deixa a mensagem mais limpa

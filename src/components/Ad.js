@@ -5,6 +5,7 @@ const $logger = require('./Logger');
 const Formatter = require('../utils/Formatter');
 const adRepository = require('../repositories/adRepository.js');
 const scrapperRepository = require('../repositories/scrapperRepository.js');
+const subscriptionRepository = require('../repositories/subscriptionRepository.js');
 const { theilSen } = require('./Trend');
 
 /**
@@ -18,7 +19,7 @@ class Ad {
         this.searchTerm = ad.searchTerm;
         this.searchUrl = ad.searchUrl;
         this.price = ad.price;
-        this.notify = ad.notify;
+        this.notify = ad.notify; // True se NÃO for a primeira varredura da URL
         this.valid = this.isValidAd();
         this.saved = null;
     }
@@ -140,7 +141,12 @@ class Ad {
             if (this.notify) {
                 const analysis = await this.buildMarketAnalysis();
                 const msg = `🆕 <b>NOVO ANÚNCIO</b>\n\n${this.title}\n\n💵 <b>Preço: ${Formatter.money(this.price)}</b>\n\n🔗 ${this.url}\n${analysis}`;
-                await notifier.sendNotification(msg);
+                
+                // MULTI-CHAT: Dispara para todos os grupos/usuários que pediram
+                const chats = await subscriptionRepository.getChatsByUrl(this.searchUrl);
+                for (const chatId of chats) {
+                    await notifier.sendNotification(chatId, msg);
+                }
             }
             return true;
         } catch (error) {
@@ -158,7 +164,12 @@ class Ad {
                 const analysis = await this.buildMarketAnalysis();
                 
                 const msg = `📉 <b>QUEDA DE PREÇO</b> (${discount}% OFF)\n\n${this.title}\n\n💵 De: ${Formatter.money(this.saved.price)} → <b>Por: ${Formatter.money(this.price)}</b>\n\n🔗 ${this.url}\n${analysis}`;
-                await notifier.sendNotification(msg);
+                
+                // MULTI-CHAT: Notifica todos inscritos
+                const chats = await subscriptionRepository.getChatsByUrl(this.searchUrl);
+                for (const chatId of chats) {
+                    await notifier.sendNotification(chatId, msg);
+                }
             }
         }
     }

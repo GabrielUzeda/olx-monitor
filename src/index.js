@@ -3,14 +3,17 @@ const { initializeCycleTLS, exitCycleTLS } = require("./components/CycleTls");
 const $logger = require("./components/Logger");
 const { scraper } = require("./components/Scraper");
 const { createTables } = require("./database/database.js");
+const telegramBot = require("./components/TelegramBot.js");
+const subscriptionRepository = require("./repositories/subscriptionRepository.js");
 
 /**
  * Executes the scraping process for all configured URLs
  */
 const runScraper = async () => {
-  $logger.info(`Starting scraping cycle for ${config.urls.length} URLs...`);
+  const urls = await subscriptionRepository.getAllDistinctUrls();
+  $logger.info(`Starting scraping cycle for ${urls.length} unique URLs...`);
   
-  for (const url of config.urls) {
+  for (const url of urls) {
     try {
       await scraper(url);
     } catch (error) {
@@ -32,6 +35,9 @@ const main = async () => {
     await createTables();
     await initializeCycleTLS();
     
+    // Start Telegram Bot Polling
+    telegramBot.start();
+    
     // Immediate execution
     await runScraper();
 
@@ -51,6 +57,7 @@ const main = async () => {
 const shutdown = async (signal) => {
   $logger.info(`${signal} received. Shutting down gracefully...`);
   try {
+    telegramBot.stop();
     await exitCycleTLS();
     $logger.info("CycleTLS closed.");
     process.exit(0);

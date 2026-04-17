@@ -63,11 +63,24 @@ const createTables = async () => {
         PRIMARY KEY("id" AUTOINCREMENT)
     );`,
 
+    // Subscriptions table (Multi-chat support)
+    `CREATE TABLE IF NOT EXISTS "subscriptions" (
+        "id"            INTEGER NOT NULL UNIQUE,
+        "chatId"        TEXT NOT NULL,
+        "url"           TEXT NOT NULL,
+        "searchName"    TEXT NOT NULL,
+        "created"       TEXT NOT NULL,
+        PRIMARY KEY("id" AUTOINCREMENT),
+        UNIQUE("chatId", "url")
+    );`,
+
     // PERFORMANCE INDEXES
     `CREATE INDEX IF NOT EXISTS idx_ads_id ON ads(id);`,
     `CREATE INDEX IF NOT EXISTS idx_ads_searchTerm ON ads(searchTerm);`,
     `CREATE INDEX IF NOT EXISTS idx_logs_url ON logs(url);`,
-    `CREATE INDEX IF NOT EXISTS idx_logs_created ON logs(created);`
+    `CREATE INDEX IF NOT EXISTS idx_logs_created ON logs(created);`,
+    `CREATE INDEX IF NOT EXISTS idx_subs_chatId ON subscriptions(chatId);`,
+    `CREATE INDEX IF NOT EXISTS idx_subs_url ON subscriptions(url);`
   ];
 
   for (const query of queries) {
