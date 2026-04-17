@@ -1,52 +1,57 @@
-const path = require('path')
-const config = require('../config')
-const sqlite = require("sqlite3").verbose()
+const path = require('path');
+const config = require('../config');
+const sqlite = require("sqlite3").verbose();
+
+// Database initialization with performance tuning
 const db = new sqlite.Database(
   path.join(__dirname, '../', config.dbFile)
-)
+);
+
+// Performance: Enable WAL mode for better concurrency
+db.run("PRAGMA journal_mode = WAL;");
+db.run("PRAGMA synchronous = NORMAL;");
 
 const getTableColumns = (table) => {
   return new Promise((resolve, reject) => {
     db.all(`PRAGMA table_info(${table});`, function (error, rows) {
       if (error) {
-        reject(error)
-        return
+        reject(error);
+        return;
       }
-      resolve(rows.map((r) => r.name))
-    })
-  })
-}
+      resolve(rows.map((r) => r.name));
+    });
+  });
+};
 
 const addColumnIfMissing = async (table, column, definition) => {
-  const cols = await getTableColumns(table)
-  if (cols.includes(column)) return
+  const cols = await getTableColumns(table);
+  if (cols.includes(column)) return;
 
   await new Promise((resolve, reject) => {
     db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`, function (error) {
       if (error) {
-        reject(error)
-        return
+        reject(error);
+        return;
       }
-      resolve(true)
-    })
-  })
-}
+      resolve(true);
+    });
+  });
+};
 
 const createTables = async () => {
-
-  // Define separate SQL statements for each table creation
   const queries = [
-    `
-    CREATE TABLE IF NOT EXISTS "ads" (
+    // Ads table
+    `CREATE TABLE IF NOT EXISTS "ads" (
         "id"            INTEGER NOT NULL UNIQUE,
         "searchTerm"    TEXT NOT NULL,
-        "title"	        TEXT NOT NULL,
+        "title"         TEXT NOT NULL,
         "price"         INTEGER NOT NULL,
         "url"           TEXT NOT NULL,
         "created"       TEXT NOT NULL,
         "lastUpdate"    TEXT NOT NULL
     );`,
-
+    
+    // Logs table
     `CREATE TABLE IF NOT EXISTS "logs" (
         "id"            INTEGER NOT NULL UNIQUE,
         "url"           TEXT NOT NULL,  
@@ -56,49 +61,39 @@ const createTables = async () => {
         "maxPrice"      NUMERIC NOT NULL, 
         "created"       TEXT NOT NULL,
         PRIMARY KEY("id" AUTOINCREMENT)
-    );`
+    );`,
+
+    // PERFORMANCE INDEXES
+    `CREATE INDEX IF NOT EXISTS idx_ads_id ON ads(id);`,
+    `CREATE INDEX IF NOT EXISTS idx_ads_searchTerm ON ads(searchTerm);`,
+    `CREATE INDEX IF NOT EXISTS idx_logs_url ON logs(url);`,
+    `CREATE INDEX IF NOT EXISTS idx_logs_created ON logs(created);`
   ];
 
-  return new Promise(function(resolve, reject) {
-    // Iterate through the array of queries and execute them one by one
-    const executeQuery = (index) => {
-      if (index === queries.length) {
-        resolve(true); // All queries have been executed
-        return;
-      }
+  for (const query of queries) {
+    await new Promise((resolve, reject) => {
+      db.run(query, (err) => err ? reject(err) : resolve());
+    });
+  }
 
-      db.run(queries[index], function(error) {
-        if (error) {
-          reject(error);
-          return;
-        }
+  // Schema evolution
+  const logCols = [
+    ["medianPrice", "NUMERIC"], ["modePrice", "NUMERIC"], 
+    ["modalIntervalStart", "NUMERIC"], ["modalIntervalEnd", "NUMERIC"],
+    ["modalIntervalWidth", "NUMERIC"], ["modalIntervalCount", "INTEGER"],
+    ["modalTop3BinsJson", "TEXT"], ["goodPrice", "NUMERIC"],
+    ["goodPriceType", "TEXT"], ["stdDevPrice", "NUMERIC"],
+    ["cvPrice", "NUMERIC"], ["sampleSize", "INTEGER"]
+  ];
 
-        // Execute the next query in the array
-        executeQuery(index + 1);
-      });
-    };
+  for (const [col, def] of logCols) {
+    await addColumnIfMissing("logs", col, def);
+  }
 
-    // Start executing the queries from index 0
-    executeQuery(0);
-  }).then(async () => {
-    // Schema evolution: add optional statistical columns to logs
-    await addColumnIfMissing("logs", "medianPrice", "NUMERIC")
-    await addColumnIfMissing("logs", "modePrice", "NUMERIC")
-    await addColumnIfMissing("logs", "modalIntervalStart", "NUMERIC")
-    await addColumnIfMissing("logs", "modalIntervalEnd", "NUMERIC")
-    await addColumnIfMissing("logs", "modalIntervalWidth", "NUMERIC")
-    await addColumnIfMissing("logs", "modalIntervalCount", "INTEGER")
-    await addColumnIfMissing("logs", "modalTop3BinsJson", "TEXT")
-    await addColumnIfMissing("logs", "goodPrice", "NUMERIC")
-    await addColumnIfMissing("logs", "goodPriceType", "TEXT")
-    await addColumnIfMissing("logs", "stdDevPrice", "NUMERIC")
-    await addColumnIfMissing("logs", "cvPrice", "NUMERIC")
-    await addColumnIfMissing("logs", "sampleSize", "INTEGER")
-    return true
-  })
-}
+  return true;
+};
 
 module.exports = {
   db,
   createTables
-}
+};
