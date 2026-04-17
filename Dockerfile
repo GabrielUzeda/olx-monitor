@@ -6,9 +6,7 @@ RUN npm install --omit=dev --no-audit --no-fund
 
 # Final Stage
 FROM node:20
-ARG NODE_ENV
 WORKDIR /usr/app
 COPY --from=builder /usr/app/ ./
-RUN npm install -g nodemon
 EXPOSE 3000
-CMD [ "nodemon", "--legacy-watch", "index.js" ]
+CMD [ "npm", "run", "start" ]
