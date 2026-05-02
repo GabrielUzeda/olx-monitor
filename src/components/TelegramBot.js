@@ -135,8 +135,10 @@ class TelegramBot {
         let searchName = match[2] ? match[2].trim() : null;
 
         try {
-            const parsedUrl = new URL(url);
+            new URL(url); // Valida se é uma URL real
+            
             if (!searchName) {
+                const parsedUrl = new URL(url);
                 searchName = parsedUrl.searchParams.get('q') || parsedUrl.pathname.split('/').pop() || 'Busca';
             }
 
@@ -148,7 +150,12 @@ class TelegramBot {
                 await notifier.sendNotification(chatId, `⚠️ Já estou monitorando este link.`, { threadId });
             }
         } catch (e) {
-            await notifier.sendNotification(chatId, `❌ URL inválida.`, { threadId });
+            if (e instanceof TypeError) {
+                await notifier.sendNotification(chatId, `❌ URL inválida. Certifique-se de que o link começa com http/https.`, { threadId });
+            } else {
+                $logger.error(`Add Subscription error: ${e.message}`);
+                await notifier.sendNotification(chatId, `❌ Erro interno ao salvar a busca.`, { threadId });
+            }
         }
     }
 

@@ -104,6 +104,9 @@ const createTables = async () => {
     await addColumnIfMissing("logs", col, def);
   }
 
+  // Schema evolution for subscriptions
+  await addColumnIfMissing("subscriptions", "threadId", "TEXT");
+
   return true;
 };
 
