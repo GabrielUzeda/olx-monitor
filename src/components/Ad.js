@@ -179,7 +179,11 @@ class Ad {
                 
                 const subscriptions = await subscriptionRepository.getChatsByUrl(this.searchUrl);
                 for (const sub of subscriptions) {
-                    await notifier.sendNotification(sub.chatId, msg, { threadId: sub.threadId });
+                    let finalMsg = msg;
+                    if (sub.username) {
+                        finalMsg += `\n\n🔔 @${sub.username}`;
+                    }
+                    await notifier.sendNotification(sub.chatId, finalMsg, { threadId: sub.threadId });
                 }
             }
             return true;
@@ -206,7 +210,11 @@ class Ad {
                 
                 const subscriptions = await subscriptionRepository.getChatsByUrl(this.searchUrl);
                 for (const sub of subscriptions) {
-                    await notifier.sendNotification(sub.chatId, msg, { threadId: sub.threadId });
+                    let finalMsg = msg;
+                    if (sub.username) {
+                        finalMsg += `\n\n🔔 @${sub.username}`;
+                    }
+                    await notifier.sendNotification(sub.chatId, finalMsg, { threadId: sub.threadId });
                 }
             }
         }

@@ -71,13 +71,14 @@ class TelegramBot {
         const chatId = message.chat.id;
         const text = message.text.trim();
         const threadId = message.message_thread_id || null;
+        const username = message.from?.username || null;
 
-        $logger.debug(`Message from ${chatId} (Thread: ${threadId}): ${text}`);
+        $logger.debug(`Message from ${chatId} (User: ${username}, Thread: ${threadId}): ${text}`);
 
         if (text.startsWith('/start')) {
             await this.handleStart(chatId, threadId);
         } else if (text.startsWith('/add ')) {
-            await this.handleAdd(chatId, text, threadId);
+            await this.handleAdd(chatId, text, threadId, username);
         } else if (text.startsWith('/remove')) {
             await this.handleRemove(chatId, text, threadId);
         } else if (text.startsWith('/list')) {
@@ -123,7 +124,7 @@ class TelegramBot {
         await notifier.sendNotification(chatId, msg, { threadId });
     }
 
-    async handleAdd(chatId, text, threadId) {
+    async handleAdd(chatId, text, threadId, username) {
         const match = text.match(/\/add\s+(https?:\/\/[^\s]+)(?:\s+(.+))?/);
         
         if (!match) {
@@ -142,7 +143,7 @@ class TelegramBot {
                 searchName = parsedUrl.searchParams.get('q') || parsedUrl.pathname.split('/').pop() || 'Busca';
             }
 
-            const success = await subscriptionRepository.addSubscription(chatId, url, searchName, threadId);
+            const success = await subscriptionRepository.addSubscription(chatId, url, searchName, threadId, username);
             
             if (success) {
                 await notifier.sendNotification(chatId, `✅ <b>Monitorando:</b> <a href="${url}">${searchName}</a>`, { threadId });

@@ -68,6 +68,7 @@ const createTables = async () => {
         "id"            INTEGER NOT NULL UNIQUE,
         "chatId"        TEXT NOT NULL,
         "threadId"      TEXT,
+        "username"      TEXT,
         "url"           TEXT NOT NULL,
         "searchName"    TEXT NOT NULL,
         "created"       TEXT NOT NULL,
@@ -106,6 +107,7 @@ const createTables = async () => {
 
   // Schema evolution for subscriptions
   await addColumnIfMissing("subscriptions", "threadId", "TEXT");
+  await addColumnIfMissing("subscriptions", "username", "TEXT");
 
   return true;
 };

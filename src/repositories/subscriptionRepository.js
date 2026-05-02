@@ -1,15 +1,15 @@
 const { db } = require('../database/database.js');
 const $logger = require('../components/Logger.js');
 
-const addSubscription = async (chatId, url, searchName, threadId = null) => {
+const addSubscription = async (chatId, url, searchName, threadId = null, username = null) => {
     $logger.debug('subscriptionRepository: addSubscription');
 
     const query = `
-        INSERT INTO subscriptions (chatId, url, searchName, threadId, created)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO subscriptions (chatId, url, searchName, threadId, username, created)
+        VALUES (?, ?, ?, ?, ?, ?)
     `;
     const now = new Date().toISOString();
-    const values = [String(chatId), url, searchName, threadId ? String(threadId) : null, now];
+    const values = [String(chatId), url, searchName, threadId ? String(threadId) : null, username, now];
 
     return new Promise((resolve, reject) => {
         db.run(query, values, function (error) {
@@ -61,12 +61,12 @@ const getSubscriptionsByChat = async (chatId) => {
 };
 
 /**
- * Returns an array of objects { chatId, threadId }
+ * Returns an array of objects { chatId, threadId, username }
  */
 const getChatsByUrl = async (url) => {
     $logger.debug('subscriptionRepository: getChatsByUrl');
 
-    const query = `SELECT chatId, threadId FROM subscriptions WHERE url = ?`;
+    const query = `SELECT chatId, threadId, username FROM subscriptions WHERE url = ?`;
     const values = [url];
 
     return new Promise((resolve, reject) => {
