@@ -17,7 +17,7 @@
     "start": "node --env-file=.env index.js",
     "start:debug": "DEBUG=true node --env-file=.env index.js"
   },
-  "author": "Augusto Carmo",
+  "author": "GabrielUzeda",
   "license": "MIT",
   "devDependencies": {
     "nodemon": "^3.0.1"
